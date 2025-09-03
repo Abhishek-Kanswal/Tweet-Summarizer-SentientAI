@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { ArrowLeft, Copy, RefreshCw, Info } from "lucide-react";
 
 export function SummaryCard({ tweet, showSummary }) {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState("");
   const [displayText, setDisplayText] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -15,7 +15,7 @@ export function SummaryCard({ tweet, showSummary }) {
   const API_URL = "https://api.fireworks.ai/inference/v1/chat/completions";
   const MODEL = "accounts/sentientfoundation/models/dobby-unhinged-llama-3-3-70b-new";
 
-  // Load saved API key from localStorage
+  // Load saved API key
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedKey = localStorage.getItem("API_KEY") || "";
@@ -23,12 +23,8 @@ export function SummaryCard({ tweet, showSummary }) {
     }
   }, []);
 
-
-  console.log(apiKey);
-  // Call Fireworks API
   const askDobby = async (content) => {
     if (!apiKey) {
-      setLoading(false);
       setSummary("Missing API key. Add your Fireworks API key to proceed.");
       return;
     }
@@ -45,11 +41,11 @@ export function SummaryCard({ tweet, showSummary }) {
         {
           role: "user",
           content: `Here is a tweet: ${content} 👉 Your tasks:
-1. Summarize the tweet in **clear bullet points**.  
-2. Explain what the author is talking about in **simple terms**.  
-3. Highlight the **main topic** (crypto, tech, finance, etc).  
-4. Provide **extra insights** if relevant.  
-5. Format response with **bold headings** + bullet points.`,
+1. Summarize in **bullet points**  
+2. Explain in simple terms  
+3. Highlight main topic (crypto, tech, finance, etc)  
+4. Add extra insights if relevant  
+5. Format with **bold headings** + bullet points`,
         },
       ],
     };
@@ -60,24 +56,25 @@ export function SummaryCard({ tweet, showSummary }) {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
-          Accept: "application/json",
         },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         if (response.status === 403) {
-          // API key invalid
+          // Remove invalid key
           localStorage.removeItem("API_KEY");
           setApiKey("");
-          throw new Error("API key is invalid or expired. Please add a valid key.");
-        } else {
-          throw new Error("API error: " + response.status);
+          throw new Error("API key invalid or expired");
         }
+        throw new Error("API error: " + response.status);
       }
 
       const data = await response.json();
-      setSummary(data?.choices?.[0]?.message?.content?.trim() || "No response. Please try again.");
+
+      const summaryText =
+        data?.choices?.[0]?.message?.content?.trim() || "No response. Please try again.";
+      setSummary(summaryText);
     } catch (error) {
       setSummary("Error: " + error.message);
     } finally {
@@ -85,7 +82,7 @@ export function SummaryCard({ tweet, showSummary }) {
     }
   };
 
-  // Fetch summary when tweet or API key changes
+  // Run when tweet or API key changes
   useEffect(() => {
     if (!tweet || !apiKey) return;
 
@@ -98,26 +95,15 @@ timeStamps: ${tweet.timestamp}`;
     askDobby(content);
   }, [tweet, apiKey]);
 
-  // Handle saving API key
+  // Save API key
   const handleSaveApiKey = () => {
     if (!inputApiKey) return;
-
     localStorage.setItem("API_KEY", inputApiKey);
     setApiKey(inputApiKey);
     setInputApiKey("");
-
-    // Re-run summary if tweet exists
-    if (tweet) {
-      const content = `author: ${tweet.authorName},
-media: ${tweet.media.join(", ")},
-content: ${tweet.content},
-twitterHandle: ${tweet.handle},
-timeStamps: ${tweet.timestamp}`;
-      askDobby(content);
-    }
   };
 
-  // Typing animation for displayText
+  // Typing animation
   useEffect(() => {
     if (!loading && summary) {
       let i = 0;
@@ -131,7 +117,7 @@ timeStamps: ${tweet.timestamp}`;
     }
   }, [loading, summary]);
 
-  // Copy feedback
+  // Copy
   const handleCopy = () => {
     navigator.clipboard.writeText(summary);
     setCopied(true);
@@ -140,7 +126,7 @@ timeStamps: ${tweet.timestamp}`;
 
   return (
     <div className="flex flex-col w-full items-start gap-3 sm:gap-4 bg-muted/50 shadow-sm border p-6 sm:p-8 rounded-2xl">
-      {/* Top controls */}
+      {/* Top buttons */}
       <div className="flex items-center gap-2 mb-2">
         <button
           onClick={() => showSummary(false)}
@@ -178,13 +164,49 @@ timeStamps: ${tweet.timestamp}`;
       {/* Chat content */}
       <div className="flex w-full items-start gap-3 sm:gap-4">
         <img
-          src="src/assets/sentient.jpg"
+          src="/sentient.jpg"
           alt="AI assistant avatar"
           className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-full bg-white shadow"
         />
 
         <div className="pr-5 py-1 sm:pr-5 sm:py-2 max-w-[90%] sm:max-w-[80%]">
-          {loading ? (
+          {!apiKey ? (
+            <div className="mt-3 rounded-lg border p-3 bg-background">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2 sm:gap-0">
+                <p className="text-sm text-foreground sm:mr-4">
+                  Add your Fireworks API key to generate summaries
+                </p>
+                <button
+                  onClick={() =>
+                    window.open(
+                      "https://app.fireworks.ai/settings/users/api-keys",
+                      "_blank"
+                    )
+                  }
+                  className="flex items-center gap-1 text-xs text-sky-500 hover:underline"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                  Fireworks API
+                </button>
+              </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <input
+                  type="password"
+                  placeholder="Enter Fireworks API key"
+                  className="flex-1 rounded-md border bg-transparent px-3 py-2 text-sm outline-none text-foreground placeholder:text-muted-foreground"
+                  value={inputApiKey}
+                  onChange={(e) => setInputApiKey(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveApiKey()}
+                />
+                <button
+                  onClick={handleSaveApiKey}
+                  className="px-3 py-2 rounded-md border hover:bg-accent text-sm"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : loading ? (
             <div className="flex items-center gap-2 text-muted-foreground text-sm sm:text-base">
               <span>Summarizing</span>
               <div className="flex gap-1 pt-1.5">
@@ -204,41 +226,6 @@ timeStamps: ${tweet.timestamp}`;
             >
               {displayText || summary}
             </ReactMarkdown>
-          )}
-
-          {/* API Key prompt */}
-          {!loading && !apiKey && (
-            <div className="mt-3 rounded-lg border p-3 bg-background">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2 sm:gap-0">
-                <p className="text-sm text-foreground sm:mr-4">
-                  Add your Fireworks API key to generate summaries
-                </p>
-                <button
-                  onClick={() => window.open("https://app.fireworks.ai/settings/users/api-keys", "_blank")}
-                  className="flex items-center gap-1 text-xs text-sky-500 hover:underline"
-                >
-                  <Info className="h-3.5 w-3.5" />
-                  Fireworks API
-                </button>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                <input
-                  type="password"
-                  placeholder="Enter Fireworks API key"
-                  className="flex-1 rounded-md border bg-transparent px-3 py-2 text-sm outline-none text-foreground placeholder:text-muted-foreground"
-                  value={inputApiKey}
-                  onChange={(e) => setInputApiKey(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSaveApiKey()}
-                />
-                <button
-                  onClick={handleSaveApiKey}
-                  className="px-3 py-2 rounded-md border hover:bg-accent text-sm"
-                >
-                  Save
-                </button>
-              </div>
-            </div>
           )}
         </div>
       </div>

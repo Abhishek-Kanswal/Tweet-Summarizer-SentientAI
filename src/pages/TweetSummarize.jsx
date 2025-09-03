@@ -125,7 +125,7 @@ function TweetSummarize() {
             <header className="mb-8 sm:mb-10 text-center">
               <div className="mx-auto mb-3 flex h-[65px] w-[65px] items-center justify-center rounded-full">
                 <img
-                  src="src\assets\sentient.jpg"
+                  src="\sentient.jpg"
                   alt="AI assistant avatar"
                   className="h-12 w-12 sm:h-[65px] sm:w-[65px] shrink-0 rounded-full bg-white shadow"
                 />
