@@ -13,13 +13,20 @@ export function SummaryCard({ tweet, showSummary }) {
   const [copied, setCopied] = useState(false);
 
   const API_URL = "https://api.fireworks.ai/inference/v1/chat/completions";
-  const MODEL = "accounts/sentientfoundation/models/dobby-unhinged-llama-3-3-70b-new";
+  const MODEL =
+    "accounts/sentientfoundation/models/dobby-unhinged-llama-3-3-70b-new";
 
-  // Load saved API key
+  // Load env or saved API key
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const envKey = import.meta.env.VITE_FIREWORK_API_KEY || "";
       const savedKey = localStorage.getItem("API_KEY") || "";
-      setApiKey(savedKey);
+
+      if (envKey) {
+        setApiKey(envKey); // try env key first
+      } else if (savedKey) {
+        setApiKey(savedKey); // fallback to saved user key
+      }
     }
   }, []);
 
@@ -62,9 +69,13 @@ export function SummaryCard({ tweet, showSummary }) {
 
       if (!response.ok) {
         if (response.status === 403) {
-          // Remove invalid key
-          localStorage.removeItem("API_KEY");
-          setApiKey("");
+          // If env key failed, fallback to user key
+          if (apiKey === import.meta.env.VITE_FIREWORK_API_KEY) {
+            setApiKey(""); // force UI to ask user
+          } else {
+            localStorage.removeItem("API_KEY");
+            setApiKey("");
+          }
           throw new Error("API key invalid or expired");
         }
         throw new Error("API error: " + response.status);
@@ -73,7 +84,8 @@ export function SummaryCard({ tweet, showSummary }) {
       const data = await response.json();
 
       const summaryText =
-        data?.choices?.[0]?.message?.content?.trim() || "No response. Please try again.";
+        data?.choices?.[0]?.message?.content?.trim() ||
+        "No response. Please try again.";
       setSummary(summaryText);
     } catch (error) {
       setSummary("Error: " + error.message);
@@ -95,7 +107,7 @@ timeStamps: ${tweet.timestamp}`;
     askDobby(content);
   }, [tweet, apiKey]);
 
-  // Save API key
+  // Save user API key
   const handleSaveApiKey = () => {
     if (!inputApiKey) return;
     localStorage.setItem("API_KEY", inputApiKey);
@@ -218,10 +230,30 @@ timeStamps: ${tweet.timestamp}`;
           ) : (
             <ReactMarkdown
               components={{
-                strong: ({ node, ...props }) => <strong className="font-semibold text-foreground" {...props} />,
-                ul: ({ node, ...props }) => <ul className="list-disc pl-5 space-y-1 text-muted-foreground" {...props} />,
-                li: ({ node, ...props }) => <li className="text-sm sm:text-base leading-relaxed" {...props} />,
-                p: ({ node, ...props }) => <p className="text-sm sm:text-base leading-relaxed text-muted-foreground mb-2" {...props} />,
+                strong: ({ node, ...props }) => (
+                  <strong
+                    className="font-semibold text-foreground"
+                    {...props}
+                  />
+                ),
+                ul: ({ node, ...props }) => (
+                  <ul
+                    className="list-disc pl-5 space-y-1 text-muted-foreground"
+                    {...props}
+                  />
+                ),
+                li: ({ node, ...props }) => (
+                  <li
+                    className="text-sm sm:text-base leading-relaxed"
+                    {...props}
+                  />
+                ),
+                p: ({ node, ...props }) => (
+                  <p
+                    className="text-sm sm:text-base leading-relaxed text-muted-foreground mb-2"
+                    {...props}
+                  />
+                ),
               }}
             >
               {displayText || summary}
